@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-audio-notes",
+	"name": "voice-note",
 	"version": "1.0.0",
-	"description": "Record audio notes and automatically transcribe them using OpenAI's Realtime API",
+	"description": "Record voice notes and automatically transcribe them using OpenAI's Realtime API",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -9,7 +9,7 @@
 		"version": "node version-bump.mjs"
 	},
 	"keywords": ["obsidian", "audio", "transcription"],
-	"author": "Your Name",
+	"author": "Naiding Zhou",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",

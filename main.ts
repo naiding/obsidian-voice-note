@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	isRecording: false
 }
 
-export default class AudioTranscriptionPlugin extends Plugin {
+export default class VoiceNotePlugin extends Plugin {
 	settings: MyPluginSettings;
 	private mediaRecorder: MediaRecorder | null = null;
 	private statusBarItem: HTMLElement;
@@ -48,7 +48,7 @@ export default class AudioTranscriptionPlugin extends Plugin {
 		this.updateStatusBar();
 
 		// Add settings tab
-		this.addSettingTab(new AudioTranscriptionSettingTab(this.app, this));
+		this.addSettingTab(new VoiceNoteSettingTab(this.app, this));
 	}
 
 	private async setupWebSocket() {
@@ -372,10 +372,10 @@ export default class AudioTranscriptionPlugin extends Plugin {
 	}
 }
 
-class AudioTranscriptionSettingTab extends PluginSettingTab {
-	plugin: AudioTranscriptionPlugin;
+class VoiceNoteSettingTab extends PluginSettingTab {
+	plugin: VoiceNotePlugin;
 
-	constructor(app: App, plugin: AudioTranscriptionPlugin) {
+	constructor(app: App, plugin: VoiceNotePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
