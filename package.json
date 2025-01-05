@@ -1,0 +1,28 @@
+{
+	"name": "obsidian-audio-notes",
+	"version": "1.0.0",
+	"description": "Record audio notes and automatically transcribe them using OpenAI's Realtime API",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"version": "node version-bump.mjs"
+	},
+	"keywords": ["obsidian", "audio", "transcription"],
+	"author": "Your Name",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^16.11.6",
+		"@types/ws": "^8.5.10",
+		"@typescript-eslint/eslint-plugin": "^5.2.0",
+		"@typescript-eslint/parser": "^5.2.0",
+		"builtin-modules": "^3.2.0",
+		"esbuild": "0.17.3",
+		"obsidian": "latest",
+		"tslib": "2.4.0",
+		"typescript": "4.7.4"
+	},
+	"dependencies": {
+		"ws": "^8.16.0"
+	}
+}

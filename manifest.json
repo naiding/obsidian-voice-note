@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-audio-notes",
+	"name": "Audio Notes",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Record audio notes and automatically transcribe them using OpenAI's Whisper API.",
+	"author": "Your Name",
+	"authorUrl": "https://obsidian.md",
+	"isDesktopOnly": true
+}
