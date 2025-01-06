@@ -5,8 +5,8 @@ export const WEBSOCKET_CONFIG = {
     VAD_CONFIG: {
         type: 'server_vad',
         threshold: 0.3,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 500,
+        prefix_padding_ms: 150,
+        silence_duration_ms: 250,
         create_response: true
     },
     TEMPERATURE: 0.6,

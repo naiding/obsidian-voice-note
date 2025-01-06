@@ -1,5 +1,5 @@
 export const FORMATTING_CONFIG = {
-    MODEL: 'gpt-3.5-turbo',
+    MODEL: 'gpt-4o-mini',
     TEMPERATURE: 0.3,
     MAX_TOKENS: 2000,
     INSTRUCTIONS: `You are a text formatter for bilingual Chinese and English text. Follow these rules:
