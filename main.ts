@@ -163,6 +163,7 @@ export default class VoiceNotePlugin extends Plugin {
 			channelCount: 1,
 			echoCancellation: true,
 			noiseSuppression: true,
+			autoGainControl: true,
 		};
 
 		// Set sample rate as a number for the audio context
@@ -172,10 +173,10 @@ export default class VoiceNotePlugin extends Plugin {
 				sampleRate = 48000;
 				break;
 			case 'low':
-				sampleRate = 8000;
+				sampleRate = 16000;
 				break;
 			default: // medium
-				sampleRate = 16000;
+				sampleRate = 24000;
 		}
 
 		// Add sampleRate to constraints with proper type
@@ -206,18 +207,21 @@ export default class VoiceNotePlugin extends Plugin {
 						session: {
 							modalities: ['text'],
 							input_audio_format: 'pcm16',
-							instructions: "You're a speech-to-text translator. Output what the user says without additional response. Make sentences readable and sensible, despite duplicates or unclear words. Output should be using Simplified Chinese and English only.",
+							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these rules:\n1. If the speech is primarily in English, transcribe in English with proper punctuation\n2. If the speech is primarily in Mandarin, transcribe in Simplified Chinese characters, but preserve any English terms or phrases in their original English form\n3. For mixed speech (e.g., Mandarin with English terms), maintain the natural flow by keeping English terms in English while surrounding Chinese text in Simplified Chinese\n4. Keep proper spacing between English words and Chinese characters\n5. Maintain appropriate punctuation for both languages\n6. Do not add translations or explanations\n\nExample format:\n- Pure English: \"This is a test\"\n- Pure Mandarin: \"这是一个测试\"\n- Mixed: \"我正在使用 GitHub 写代码\" (preserving 'GitHub' in English)",
 							input_audio_transcription: {
-								model: 'whisper-1'
+								model: 'whisper-1',
+								language: null,
+								prompt: 'This is a bilingual recording that may contain Mandarin Chinese with embedded English terms. Preserve English terms within Chinese sentences. Maintain natural language mixing.',
+								temperature: 0.3
 							},
 							turn_detection: {
 								type: 'server_vad',
-								threshold: 0.5,
-								prefix_padding_ms: 300,
-								silence_duration_ms: 500,
-								create_response: true
+								threshold: 0.3,
+									prefix_padding_ms: 500,
+									silence_duration_ms: 1000,
+									create_response: true
 							},
-							temperature: 0.6,
+							temperature: 0.3,
 							tool_choice: 'none',
 							max_response_output_tokens: 4096
 						}
@@ -394,7 +398,7 @@ export default class VoiceNotePlugin extends Plugin {
 			const source = this.audioContext.createMediaStreamSource(stream);
 			
 			// Create processor for raw PCM data
-			this.audioProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
+			this.audioProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
 			
 			this.audioProcessor.onaudioprocess = (e) => {
 				if (this.ws && this.ws.readyState === WebSocket.OPEN) {
