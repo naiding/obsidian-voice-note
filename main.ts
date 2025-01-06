@@ -36,6 +36,8 @@ export default class VoiceNotePlugin extends Plugin {
 	private readonly FORMAT_DELAY_MS = 2000; // 2 seconds silence before formatting
 	private formatTimeout: NodeJS.Timeout | null = null;
 	private lastFormatPosition: number = 0;
+	private recordingStatus: 'idle' | 'listening' | 'transcribing' | 'formatting' = 'idle';
+	private recordingDuration: number = 0;
 
 	async onload() {
 		await this.loadSettings();
@@ -240,7 +242,8 @@ export default class VoiceNotePlugin extends Plugin {
 						break;
 
 					case 'input_audio_buffer.speech_started':
-						console.log('Speech detected at', data.audio_start_ms, 'ms');
+						this.recordingStatus = 'listening';
+						this.updateStatusText();
 						// Clear any pending format timeout when speech starts
 						if (this.formatTimeout) {
 							clearTimeout(this.formatTimeout);
@@ -249,14 +252,21 @@ export default class VoiceNotePlugin extends Plugin {
 						break;
 
 					case 'input_audio_buffer.speech_stopped':
-						console.log('Speech stopped at', data.audio_end_ms, 'ms');
+						this.recordingStatus = 'transcribing';
+						this.updateStatusText();
 						this.lastTranscriptionEnd = Date.now();
 						// Set timeout to format text after silence
 						if (this.formatTimeout) {
 							clearTimeout(this.formatTimeout);
 						}
 						this.formatTimeout = setTimeout(async () => {
+							this.recordingStatus = 'formatting';
+							this.updateStatusText();
 							await this.formatPendingText();
+							if (this.settings.isRecording) {
+								this.recordingStatus = 'listening';
+								this.updateStatusText();
+							}
 						}, this.FORMAT_DELAY_MS);
 						break;
 
@@ -381,6 +391,8 @@ export default class VoiceNotePlugin extends Plugin {
 			// Reset format tracking variables
 			this.lastFormatPosition = 0;
 			this.transcribedText = '';
+			this.recordingDuration = 0;
+			this.recordingStatus = 'listening';
 			if (this.formatTimeout) {
 				clearTimeout(this.formatTimeout);
 				this.formatTimeout = null;
@@ -453,11 +465,9 @@ export default class VoiceNotePlugin extends Plugin {
 			this.updateStatusBar(0);
 
 			// Start the interval timer
-			let duration = 0;
 			this.recordingInterval = window.setInterval(() => {
-				duration++;
-				console.log('Updating status with duration:', duration);
-				this.updateStatusBar(duration);
+				this.recordingDuration++;
+				this.updateStatusText();
 			}, 1000);
 
 			// Update UI last
@@ -501,6 +511,10 @@ export default class VoiceNotePlugin extends Plugin {
 
 	async stopRecording() {
 		if (this.settings.isRecording) {
+			this.recordingStatus = 'idle';
+			this.recordingDuration = 0;
+			this.updateStatusText();
+
 			// Clear any pending format timeout
 			if (this.formatTimeout) {
 				clearTimeout(this.formatTimeout);
@@ -557,22 +571,30 @@ export default class VoiceNotePlugin extends Plugin {
 	}
 
 	private updateStatusBar(duration?: number) {
+		// Ensure status bar elements exist
 		if (!this.statusContainer || !this.statusText) {
-			console.log('Reinitializing status bar elements');
 			this.initializeStatusBar();
 			return;
 		}
 
 		const isRecording = this.settings.isRecording;
-		console.log('Updating status bar, recording:', isRecording, 'duration:', duration);
 
+		// Remove any existing classes first
+		this.statusContainer.removeClass('is-recording');
+		
 		if (isRecording) {
 			this.statusContainer.addClass('is-recording');
-			const durationText = duration ? ` (${Math.floor(duration)}s)` : '';
-			this.statusText.innerText = `Recording${durationText}...`;
+			this.recordingDuration = duration || 0;
+			this.updateStatusText();
+			
+			// Ensure the container is visible
+			this.statusContainer.style.display = 'flex';
 		} else {
-			this.statusContainer.removeClass('is-recording');
-			this.statusText.innerText = '';
+			this.recordingStatus = 'idle';
+			this.recordingDuration = 0;
+			this.updateStatusText();
+			// Don't hide completely, just remove recording indicator
+			this.statusContainer.style.display = 'flex';
 		}
 	}
 
@@ -651,7 +673,11 @@ export default class VoiceNotePlugin extends Plugin {
 	}
 
 	private async formatPendingText() {
-		if (!this.transcribedText.trim()) return;
+		if (!this.transcribedText.trim()) {
+			this.recordingStatus = 'listening';
+			this.updateStatusText();
+			return;
+		}
 
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!view) return;
@@ -676,9 +702,41 @@ export default class VoiceNotePlugin extends Plugin {
 			
 			// Update the last format position
 			this.lastFormatPosition = this.transcribedText.length;
+			
+			if (this.settings.isRecording) {
+				this.recordingStatus = 'listening';
+				this.updateStatusText();
+			}
 		} catch (error) {
 			console.error('Error formatting text:', error);
+			if (this.settings.isRecording) {
+				this.recordingStatus = 'listening';
+				this.updateStatusText();
+			}
 		}
+	}
+
+	private updateStatusText() {
+		if (!this.statusText) return;
+
+		let statusMessage = '';
+		const durationText = this.recordingDuration ? ` (${Math.floor(this.recordingDuration)}s)` : '';
+
+		switch (this.recordingStatus) {
+			case 'listening':
+				statusMessage = `Listening${durationText}...`;
+				break;
+			case 'transcribing':
+				statusMessage = `Transcribing${durationText}...`;
+				break;
+			case 'formatting':
+				statusMessage = `Formatting${durationText}...`;
+				break;
+			default:
+				statusMessage = '';
+		}
+
+		this.statusText.innerText = statusMessage;
 	}
 }
 
