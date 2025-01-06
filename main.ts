@@ -206,7 +206,7 @@ export default class VoiceNotePlugin extends Plugin {
 						session: {
 							modalities: ['text'],
 							input_audio_format: 'pcm16',
-							instructions: 'You are a transcriber focused on producing natural, readable text. Follow these guidelines:\n1. Add proper punctuation (periods, commas, question marks) based on speech patterns and pauses\n2. Start new sentences with capital letters\n3. Format the text as a continuous paragraph\n4. Add appropriate spacing after punctuation marks\n5. Do not add line breaks or special formatting\n6. Only transcribe the speech to text without adding any other content',
+							instructions: "You're a speech-to-text translator. Output what the user says without additional response. Make sentences readable and sensible, despite duplicates or unclear words. Output should be using Simplified Chinese and English only.",
 							input_audio_transcription: {
 								model: 'whisper-1'
 							},
@@ -219,7 +219,7 @@ export default class VoiceNotePlugin extends Plugin {
 							},
 							temperature: 0.6,
 							tool_choice: 'none',
-							max_response_output_tokens: 1
+							max_response_output_tokens: 4096
 						}
 					}));
 				}
