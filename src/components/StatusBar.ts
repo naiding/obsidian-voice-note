@@ -131,7 +131,7 @@ export class StatusBar {
                 break;
             case 'idle':
             default:
-                statusMessage = this.isRecording ? 'Initializing...' : 'Click microphone to start recording';
+                statusMessage = this.isRecording ? 'Initializing...' : 'Start recording';
                 break;
         }
 
