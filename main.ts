@@ -1,13 +1,15 @@
-import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Platform } from 'obsidian';
 
 interface MyPluginSettings {
 	openAiKey: string;
 	isRecording: boolean;
+	audioQuality: 'high' | 'medium' | 'low';
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	openAiKey: '',
-	isRecording: false
+	isRecording: false,
+	audioQuality: 'medium'
 }
 
 export default class VoiceNotePlugin extends Plugin {
@@ -20,28 +22,77 @@ export default class VoiceNotePlugin extends Plugin {
 	private audioProcessor: ScriptProcessorNode | null = null;
 	private audioBuffer: Int16Array[] = [];
 	private lastSendTime: number = 0;
-	private readonly SEND_INTERVAL_MS = 500; // Send every 500ms
-	private readonly MIN_AUDIO_MS = 100; // Minimum audio duration required
+	private readonly SEND_INTERVAL_MS = 500;
+	private readonly MIN_AUDIO_MS = 100;
 	private audioStartTime: number = 0;
 	private audioDuration: number = 0;
 	private accumulatedSamples: number = 0;
+	private isMobileDevice: boolean = false;
 
 	async onload() {
 		await this.loadSettings();
+		
+		// Detect platform
+		this.isMobileDevice = Platform.isMobile;
 
-		// Add a ribbon icon for toggling recording
-		const ribbonIconEl = this.addRibbonIcon('microphone', 'Toggle Audio Recording', async (evt: MouseEvent) => {
-			if (!this.settings.openAiKey) {
-				new Notice('Please set your OpenAI API key in settings first!');
-				return;
-			}
-			
-			if (!this.settings.isRecording) {
-				await this.startRecording();
-			} else {
-				await this.stopRecording();
+		// Add command for both mobile and desktop
+		this.addCommand({
+			id: 'start-stop-recording',
+			name: 'Start/Stop Voice Recording',
+			icon: 'microphone',
+			mobileOnly: false,
+			callback: async () => {
+				if (!this.settings.openAiKey) {
+					new Notice('Please set your OpenAI API key in settings first!');
+					return;
+				}
+				
+				if (!this.settings.isRecording) {
+					await this.startRecording();
+				} else {
+					await this.stopRecording();
+				}
 			}
 		});
+
+		// Add mobile toolbar icon (shows up at the bottom of the editor)
+		if (this.isMobileDevice) {
+			this.registerEvent(
+				this.app.workspace.on('file-open', () => {
+					const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (leaf) {
+						leaf.addAction('microphone', 'Voice Record', async (evt: MouseEvent) => {
+							if (!this.settings.openAiKey) {
+								new Notice('Please set your OpenAI API key in settings first!');
+								return;
+							}
+							
+							if (!this.settings.isRecording) {
+								await this.startRecording();
+							} else {
+								await this.stopRecording();
+							}
+						});
+					}
+				})
+			);
+		}
+
+		// Add desktop ribbon icon (only for desktop)
+		if (!this.isMobileDevice) {
+			const ribbonIconEl = this.addRibbonIcon('microphone', 'Toggle Voice Recording', async (evt: MouseEvent) => {
+				if (!this.settings.openAiKey) {
+					new Notice('Please set your OpenAI API key in settings first!');
+					return;
+				}
+				
+				if (!this.settings.isRecording) {
+					await this.startRecording();
+				} else {
+					await this.stopRecording();
+				}
+			});
+		}
 
 		// Add status bar item to show recording status
 		this.statusBarItem = this.addStatusBarItem();
@@ -49,6 +100,33 @@ export default class VoiceNotePlugin extends Plugin {
 
 		// Add settings tab
 		this.addSettingTab(new VoiceNoteSettingTab(this.app, this));
+	}
+
+	private async getMobileAudioConstraints() {
+		const quality = this.settings.audioQuality;
+		const constraints: MediaTrackConstraints = {
+			channelCount: 1,
+			echoCancellation: true,
+			noiseSuppression: true,
+		};
+
+		// Set sample rate as a number for the audio context
+		let sampleRate: number;
+		switch (quality) {
+			case 'high':
+				sampleRate = 48000;
+				break;
+			case 'low':
+				sampleRate = 8000;
+				break;
+			default: // medium
+				sampleRate = 16000;
+		}
+
+		// Add sampleRate to constraints with proper type
+		constraints.sampleRate = { ideal: sampleRate };
+
+		return constraints;
 	}
 
 	private async setupWebSocket() {
@@ -233,19 +311,27 @@ export default class VoiceNotePlugin extends Plugin {
 			this.lastSendTime = Date.now();
 			this.accumulatedSamples = 0;
 
-			const stream = await navigator.mediaDevices.getUserMedia({ 
-				audio: {
+			const audioConstraints = this.isMobileDevice 
+				? await this.getMobileAudioConstraints()
+				: {
 					channelCount: 1,
 					sampleRate: 16000,
 					echoCancellation: true,
 					noiseSuppression: true
-				}
+				};
+
+			const stream = await navigator.mediaDevices.getUserMedia({ 
+				audio: audioConstraints
 			});
 
-			// Create audio context and processor
+			// Create audio context with appropriate settings for the platform
 			this.audioContext = new AudioContext({
-				sampleRate: 16000,
-				latencyHint: 'interactive'
+				sampleRate: this.isMobileDevice 
+					? (typeof audioConstraints.sampleRate === 'number' 
+						? audioConstraints.sampleRate 
+						: (audioConstraints.sampleRate as ConstrainULongRange)?.ideal || 16000)
+					: 16000,
+				latencyHint: this.isMobileDevice ? 'playback' : 'interactive'
 			});
 
 			const source = this.audioContext.createMediaStreamSource(stream);
@@ -290,8 +376,11 @@ export default class VoiceNotePlugin extends Plugin {
 			}, 1000);
 
 		} catch (error: any) {
-			new Notice('Error accessing microphone: ' + error.message);
 			console.error('Recording error:', error);
+			new Notice(this.isMobileDevice 
+				? 'Error accessing microphone. Please check microphone permissions in your mobile settings.' 
+				: 'Error accessing microphone: ' + error.message
+			);
 		}
 	}
 
@@ -392,6 +481,19 @@ class VoiceNoteSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.openAiKey)
 				.onChange(async (value) => {
 					this.plugin.settings.openAiKey = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Audio Quality')
+			.setDesc('Select the audio quality (affects performance and data usage)')
+			.addDropdown(dropdown => dropdown
+				.addOption('low', 'Low (Better for slow connections)')
+				.addOption('medium', 'Medium (Recommended)')
+				.addOption('high', 'High (Best quality)')
+				.setValue(this.plugin.settings.audioQuality)
+				.onChange(async (value: 'high' | 'medium' | 'low') => {
+					this.plugin.settings.audioQuality = value;
 					await this.plugin.saveSettings();
 				}));
 	}

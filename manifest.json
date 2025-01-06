@@ -6,5 +6,5 @@
 	"description": "Record audio notes and automatically transcribe them using OpenAI's Whisper API.",
 	"author": "Naiding Zhou",
 	"authorUrl": "https://obsidian.md",
-	"isDesktopOnly": true
+	"isDesktopOnly": false
 }

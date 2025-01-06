@@ -9,15 +9,36 @@ Voice Note is a plugin for Obsidian that enables real-time voice transcription d
 - 🔊 High-quality audio processing with noise suppression
 - 🎯 Accurate transcription using OpenAI's Real-time API
 - 📱 Simple interface with status indicator
-- ⌨️ Easy toggle recording via ribbon icon
+- ⌨️ Easy toggle recording via command palette or toolbar
 
 ## Installation
 
+### Mobile Installation
+1. Open Obsidian on your mobile device
+2. Tap Settings (gear icon)
+3. Tap "Community plugins"
+4. Tap "Turn on community plugins" if not already enabled
+5. Tap "Browse" and search for "Voice Note"
+6. Tap "Install"
+7. Tap "Enable"
+
+### Desktop Installation
 1. Open Obsidian Settings
 2. Go to Community Plugins and disable Safe Mode
 3. Click Browse and search for "Voice Note"
 4. Install the plugin
 5. Enable the plugin in your Community Plugins list
+
+### Manual Installation (Advanced)
+If you need to install manually (not recommended for most users):
+1. Download these three files from the [latest release](https://github.com/naidingzhou/obsidian-voice-note/releases/latest):
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+2. Create a folder named `voice-note` in your vault's `.obsidian/plugins/` directory
+3. Copy the three files into that folder
+4. Reload Obsidian
+5. Enable the plugin in Settings > Community plugins
 
 ## Setup
 
@@ -28,16 +49,50 @@ Voice Note is a plugin for Obsidian that enables real-time voice transcription d
 
 ## Usage
 
+### Desktop
 1. Click the microphone icon in the ribbon (left sidebar) to start recording
-2. Speak clearly into your microphone
-3. Watch as your speech is transcribed in real-time
-4. Click the microphone icon again to stop recording
+2. Or use the command palette (Cmd/Ctrl + P) and search for "Voice Record"
+3. Speak clearly into your microphone
+4. Watch as your speech is transcribed in real-time
+5. Click the microphone icon again to stop recording
+
+### Mobile
+1. Tap the microphone icon in the editor toolbar (bottom of screen)
+2. Or tap the three dots menu (⋮) and search for "Voice Record"
+3. Speak clearly into your microphone
+4. Watch as your speech is transcribed in real-time
+5. Tap the same button again to stop recording
 
 ## Requirements
 
 - An active OpenAI API key
 - A working microphone
 - Obsidian v0.15.0 or higher
+
+## Development
+
+If you want to contribute to the plugin or modify it for your own use:
+
+1. Clone this repository to your local machine
+2. Make sure you have [Node.js](https://nodejs.org/) installed (version 16 or higher)
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Build the plugin:
+   ```bash
+   npm run build
+   ```
+5. For development with hot reload:
+   ```bash
+   npm run dev
+   ```
+
+### Development Tips
+- The plugin uses TypeScript and the Obsidian API
+- Build artifacts are not committed to the repository
+- Use `npm run dev` for development to get hot reload
+- Test on both desktop and mobile before submitting PRs
 
 ## Support
 
