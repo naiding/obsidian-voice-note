@@ -207,12 +207,12 @@ export default class VoiceNotePlugin extends Plugin {
 						session: {
 							modalities: ['text'],
 							input_audio_format: 'pcm16',
-							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these rules:\n1. If the speech is primarily in English, transcribe in English with proper punctuation\n2. If the speech is primarily in Mandarin, transcribe in Simplified Chinese characters, but preserve any English terms or phrases in their original English form\n3. For mixed speech (e.g., Mandarin with English terms), maintain the natural flow by keeping English terms in English while surrounding Chinese text in Simplified Chinese\n4. Keep proper spacing between English words and Chinese characters\n5. Maintain appropriate punctuation for both languages\n6. Do not add translations or explanations\n\nExample format:\n- Pure English: \"This is a test\"\n- Pure Mandarin: \"这是一个测试\"\n- Mixed: \"我正在使用 GitHub 写代码\" (preserving 'GitHub' in English)",
+							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these strict rules:\n\n1. Language and Translation Rules:\n   - Always use Simplified Chinese (简体中文) for Chinese text, NEVER use Traditional Chinese\n   - NEVER translate English words or terms into Chinese\n   - Keep ALL English terms in their original form (e.g., 'market', 'session', 'OK', brand names)\n   - Preserve English names, technical terms, and expressions exactly as spoken\n\n2. Formatting and Punctuation Rules:\n   - Use Chinese punctuation (。，？！) for Chinese sentences\n   - Use English punctuation (.?!) for pure English sentences\n   - Add proper punctuation for every sentence\n   - Keep one space between English words and Chinese characters\n   - Only add line breaks for significant topic changes or long pauses\n   - Remove all leading and trailing spaces\n\n3. Examples of Correct Formatting:\n   Bad:  \"我想看看chinese market的情况\"\n   Good: \"我想看看 Chinese market 的情况。\"\n\n   Bad:  \"這是一個 test\"\n   Good: \"这是一个 test。\"\n\n   Bad:  \"market share 很重要 sales volume 也很重要\"\n   Good: \"Market share 很重要，sales volume 也很重要。\"\n\n4. Speech Pattern Handling:\n   - Keep conversation fillers (e.g., 'hmm', 'um') only if they're meaningful\n   - Preserve English interjections ('OK', 'yes', 'ha ha') in their original form\n   - Group related sentences together without unnecessary line breaks",
 							input_audio_transcription: {
 								model: 'whisper-1',
 								language: null,
-								prompt: 'This is a bilingual recording that may contain Mandarin Chinese with embedded English terms. Preserve English terms within Chinese sentences. Maintain natural language mixing.',
-								temperature: 0.3
+								prompt: 'Transcribe in Simplified Chinese only, never Traditional Chinese. Keep all English words unchanged. Add proper punctuation. Group related sentences together.',
+								temperature: 0.1
 							},
 							turn_detection: {
 								type: 'server_vad',
@@ -221,7 +221,7 @@ export default class VoiceNotePlugin extends Plugin {
 									silence_duration_ms: 1000,
 									create_response: true
 							},
-							temperature: 0.3,
+							temperature: 0.1,
 							tool_choice: 'none',
 							max_response_output_tokens: 4096
 						}
