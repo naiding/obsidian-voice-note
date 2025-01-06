@@ -33,13 +33,14 @@ export default class VoiceNotePlugin extends Plugin {
 	private statusText: HTMLElement | null = null;
 	private transcribedText: string = '';
 	private lastTranscriptionEnd: number = 0;
-	private readonly FORMAT_DELAY_MS = 2000; // 2 seconds silence before formatting
+	private readonly FORMAT_DELAY_MS = 2000;
 	private formatTimeout: NodeJS.Timeout | null = null;
 	private backupFormatTimeout: NodeJS.Timeout | null = null;
 	private lastTranscriptTime: number = 0;
 	private lastFormatPosition: number = 0;
 	private recordingStatus: 'idle' | 'listening' | 'transcribing' | 'formatting' = 'idle';
 	private recordingDuration: number = 0;
+	private currentMicrophoneAction: any = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -79,40 +80,57 @@ export default class VoiceNotePlugin extends Plugin {
 		// Handle file open events
 		this.registerEvent(
 			this.app.workspace.on('file-open', () => {
-				// Remove action from previous view if it exists
-				if (this.currentView) {
-					const actions = (this.currentView as any).actions;
-					if (actions) {
-						const microphoneActions = Object.entries(actions)
-							.filter(([_, action]: [string, any]) => action.icon === 'microphone');
-						microphoneActions.forEach(([id, _]) => {
-							delete actions[id];
-						});
-					}
-				}
-
-				// Add action to new view
-				const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (leaf) {
-					this.currentView = leaf;
-					leaf.addAction('microphone', 'Voice Record', async (evt: MouseEvent) => {
-						if (!this.settings.openAiKey) {
-							new Notice('Please set your OpenAI API key in settings first!');
-							return;
-						}
-						
-						if (!this.settings.isRecording) {
-							await this.startRecording();
-						} else {
-							await this.stopRecording();
-						}
-					});
-				}
+				this.updateMicrophoneAction();
 			})
 		);
 
 		// Add settings tab
 		this.addSettingTab(new VoiceNoteSettingTab(this.app, this));
+	}
+
+	private updateMicrophoneAction() {
+		// Remove action from previous view if it exists
+		if (this.currentView) {
+			const actions = (this.currentView as any).actions;
+			if (actions) {
+				const microphoneActions = Object.entries(actions)
+					.filter(([_, action]: [string, any]) => 
+						action.icon === 'microphone' || action.icon === 'square');
+				microphoneActions.forEach(([id, _]) => {
+					delete actions[id];
+				});
+			}
+		}
+
+		// Add action to new view
+		const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (leaf) {
+			this.currentView = leaf;
+			this.currentMicrophoneAction = leaf.addAction(
+				this.settings.isRecording ? 'square' : 'microphone',
+				this.settings.isRecording ? 'Stop Recording' : 'Voice Record',
+				async (evt: MouseEvent) => {
+					if (!this.settings.openAiKey) {
+						new Notice('Please set your OpenAI API key in settings first!');
+						return;
+					}
+					
+					if (!this.settings.isRecording) {
+						await this.startRecording();
+					} else {
+						await this.stopRecording();
+					}
+				}
+			);
+
+			// Add recording indicator class if recording
+			if (this.settings.isRecording) {
+				const iconEl = (this.currentMicrophoneAction as any).iconEl as HTMLElement;
+				if (iconEl) {
+					iconEl.addClass('voice-note-recording');
+				}
+			}
+		}
 	}
 
 	private initializeStatusBar() {
@@ -636,23 +654,7 @@ export default class VoiceNotePlugin extends Plugin {
 		this.settings.isRecording = isRecording;
 
 		// Update action button appearance
-		if (this.currentView) {
-			const actions = (this.currentView as any).actions;
-			if (actions) {
-				const microphoneActions = Object.entries(actions)
-					.filter(([_, action]: [string, any]) => action.icon === 'microphone');
-				microphoneActions.forEach(([_, action]) => {
-					const iconEl = (action as any).iconEl as HTMLElement;
-					if (iconEl) {
-						if (isRecording) {
-							iconEl.addClass('voice-note-recording');
-						} else {
-							iconEl.removeClass('voice-note-recording');
-						}
-					}
-				});
-			}
-		}
+		this.updateMicrophoneAction();
 
 		// Update status bar
 		this.updateStatusBar(0);

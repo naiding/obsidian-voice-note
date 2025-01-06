@@ -60,61 +60,59 @@ available in the app when your plugin is enabled.
 /* Status indicator */
 .voice-note-floating-indicator {
     position: fixed;
-    bottom: 40px; /* Position above status bar */
+    bottom: 40px;
     right: 20px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
-    background-color: var(--background-primary);
-    padding: 8px 12px;
-    border-radius: 20px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    gap: 8px;
     z-index: 1000;
-    transition: all 0.3s ease;
-    border: 1px solid var(--background-modifier-border);
-    opacity: 0.9;
-}
-
-.voice-note-floating-indicator:hover {
-    opacity: 1;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: opacity 0.3s ease;
 }
 
 .voice-note-status-dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background-color: var(--text-muted);
-    margin-right: 8px;
-    transition: background-color 0.3s ease;
 }
 
 .voice-note-status-text {
     color: var(--text-muted);
-    font-size: 14px;
-    transition: color 0.3s ease;
+    font-size: 12px;
 }
 
-.voice-note-floating-indicator.is-recording .voice-note-status-dot {
-    background-color: var(--color-red);
-    animation: pulse 2s infinite;
+.is-recording .voice-note-status-dot {
+    background-color: var(--text-error);
+    animation: pulse 1.5s infinite;
 }
 
-.voice-note-floating-indicator.is-recording .voice-note-status-text {
+.is-recording .voice-note-status-text {
     color: var(--text-normal);
+}
+
+/* Recording button styles */
+.view-action[data-icon="microphone"] {
+    transition: all 0.3s ease;
+}
+
+.view-action[data-icon="square"] {
+    color: var(--text-error);
+    animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
     0% {
-        transform: scale(1);
         opacity: 1;
     }
     50% {
-        transform: scale(1.2);
-        opacity: 0.8;
+        opacity: 0.5;
     }
     100% {
-        transform: scale(1);
         opacity: 1;
     }
 }
@@ -124,14 +122,4 @@ available in the app when your plugin is enabled.
     .voice-note-floating-indicator {
         bottom: 80px; /* Higher position for mobile to avoid bottom bar */
     }
-}
-
-/* Recording button styles */
-.view-action[data-icon='microphone'] svg {
-    transition: color 0.3s ease;
-}
-
-.view-action[data-icon='microphone'].voice-note-recording svg {
-    color: var(--color-red);
-    animation: pulse 2s infinite;
 }
