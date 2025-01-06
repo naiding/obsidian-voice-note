@@ -22,6 +22,7 @@ available in the app when your plugin is enabled.
     }
 }
 
+/* Desktop status bar styles */
 .status-bar-item .voice-note-status {
     display: none;
     align-items: center;
@@ -54,4 +55,34 @@ available in the app when your plugin is enabled.
     padding-left: 4px;
     font-weight: 500;
     white-space: nowrap;
+}
+
+/* Mobile floating indicator styles */
+.is-mobile .voice-note-mobile-indicator {
+    display: none;
+    position: fixed;
+    bottom: 60px;
+    right: 16px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    align-items: center;
+    gap: 8px;
+}
+
+.is-mobile .voice-note-mobile-indicator.is-recording {
+    display: flex !important;
+}
+
+.is-mobile .voice-note-mobile-indicator .voice-note-status-dot {
+    width: 10px;
+    height: 10px;
+}
+
+.is-mobile .voice-note-mobile-indicator .voice-note-status-text {
+    font-size: 14px;
+    line-height: 1.2;
 }

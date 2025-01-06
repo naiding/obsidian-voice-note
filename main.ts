@@ -109,9 +109,15 @@ export default class VoiceNotePlugin extends Plugin {
 		// First clear any existing content
 		this.statusBarItem.empty();
 		
-		// Create status container
-		this.statusContainer = this.statusBarItem.createEl('div');
-		this.statusContainer.addClasses(['voice-note-status']);
+		if (this.isMobileDevice) {
+			// Create mobile floating indicator
+			this.statusContainer = document.body.createEl('div');
+			this.statusContainer.addClasses(['voice-note-mobile-indicator']);
+		} else {
+			// Create desktop status bar
+			this.statusContainer = this.statusBarItem.createEl('div');
+			this.statusContainer.addClasses(['voice-note-status']);
+		}
 		
 		// Create dot indicator
 		const dot = this.statusContainer.createEl('div');
@@ -141,8 +147,10 @@ export default class VoiceNotePlugin extends Plugin {
 			}
 		}
 
-		// Clean up status bar
-		if (this.statusBarItem) {
+		// Clean up status indicators
+		if (this.isMobileDevice && this.statusContainer) {
+			this.statusContainer.remove();
+		} else if (this.statusBarItem) {
 			this.statusBarItem.empty();
 		}
 		this.statusContainer = null;
