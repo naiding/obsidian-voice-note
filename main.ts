@@ -32,6 +32,10 @@ export default class VoiceNotePlugin extends Plugin {
 	private statusContainer: HTMLElement | null = null;
 	private statusText: HTMLElement | null = null;
 	private transcribedText: string = '';
+	private lastTranscriptionEnd: number = 0;
+	private readonly FORMAT_DELAY_MS = 2000; // 2 seconds silence before formatting
+	private formatTimeout: NodeJS.Timeout | null = null;
+	private lastFormatPosition: number = 0;
 
 	async onload() {
 		await this.loadSettings();
@@ -209,7 +213,7 @@ export default class VoiceNotePlugin extends Plugin {
 						session: {
 							modalities: ['text'],
 							input_audio_format: 'pcm16',
-							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these strict rules:\n\n1. Language Rules:\n   - For Chinese text, always use Simplified Chinese (简体中文), never Traditional Chinese\n   - Never translate English words or terms into Chinese\n   - Keep all English terms exactly as spoken (e.g., 'market', 'session', 'OK', brand names, technical terms)\n   - Preserve English interjections ('OK', 'yes', 'ha ha') in original form\n\n2. Text Formatting:\n   - Remove all extra spaces at start and end\n   - Never add newlines or line breaks\n   - Keep exactly one space between English words and Chinese characters\n   - Remove any duplicate spaces\n   - No spaces before punctuation\n\n3. Punctuation:\n   - Use Chinese punctuation (。，？！) for Chinese sentences\n   - Use English punctuation (.?!) for pure English sentences\n   - Add proper punctuation for every sentence\n\nExamples:\nCorrect: \"我想看看 Chinese market 的情况。\"\nCorrect: \"Market share 很重要。\"\nCorrect: \"OK，现在开始。\"",
+							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these strict rules:\n\n1. Language Rules:\n   - For Chinese text, always use Simplified Chinese (简体中文), never Traditional Chinese\n   - Never translate English words or terms into Chinese\n   - Keep all English terms exactly as spoken (e.g., 'market', 'session', 'OK', brand names, technical terms)\n   - Preserve English interjections ('OK', 'yes', 'ha ha') in original form\n\n2. Text Formatting:\n   - Remove all extra spaces at start and end\n   - Never add newlines or line breaks\n   - Keep exactly one space between English words and Chinese characters\n   - Remove any duplicate spaces\n   - No spaces before punctuation\n\n3. Punctuation:\n   - Use Chinese punctuation (。，？！) for Chinese sentences\n   - Use English punctuation (.?!) for pure English sentences\n   - Add proper punctuation for every sentence",
 							input_audio_transcription: {
 								model: 'whisper-1'
 							},
@@ -228,7 +232,6 @@ export default class VoiceNotePlugin extends Plugin {
 				}
 			};
 
-			// Handle incoming messages
 			this.ws.onmessage = async (event: MessageEvent) => {
 				const data = JSON.parse(event.data);
 				console.log('Received message:', data);
@@ -244,10 +247,23 @@ export default class VoiceNotePlugin extends Plugin {
 
 					case 'input_audio_buffer.speech_started':
 						console.log('Speech detected at', data.audio_start_ms, 'ms');
+						// Clear any pending format timeout when speech starts
+						if (this.formatTimeout) {
+							clearTimeout(this.formatTimeout);
+							this.formatTimeout = null;
+						}
 						break;
 
 					case 'input_audio_buffer.speech_stopped':
 						console.log('Speech stopped at', data.audio_end_ms, 'ms');
+						this.lastTranscriptionEnd = Date.now();
+						// Set timeout to format text after silence
+						if (this.formatTimeout) {
+							clearTimeout(this.formatTimeout);
+						}
+						this.formatTimeout = setTimeout(async () => {
+							await this.formatPendingText();
+						}, this.FORMAT_DELAY_MS);
 						break;
 
 					case 'input_audio_buffer.committed':
@@ -265,6 +281,7 @@ export default class VoiceNotePlugin extends Plugin {
 									const cursor = editor.getCursor();
 									// Clean up the transcript text: trim spaces and normalize newlines
 									const text = content.transcript.trim() + ' ';
+									this.transcribedText += text;
 									editor.replaceRange(text, cursor);
 									// Move cursor to end of inserted text
 									const newPos = editor.offsetToPos(editor.posToOffset(cursor) + text.length);
@@ -367,6 +384,14 @@ export default class VoiceNotePlugin extends Plugin {
 
 	async startRecording() {
 		try {
+			// Reset format tracking variables
+			this.lastFormatPosition = 0;
+			this.transcribedText = '';
+			if (this.formatTimeout) {
+				clearTimeout(this.formatTimeout);
+				this.formatTimeout = null;
+			}
+			
 			console.log('Starting recording...');
 			await this.setupWebSocket();
 			this.audioBuffer = [];
@@ -482,6 +507,12 @@ export default class VoiceNotePlugin extends Plugin {
 
 	async stopRecording() {
 		if (this.settings.isRecording) {
+			// Clear any pending format timeout
+			if (this.formatTimeout) {
+				clearTimeout(this.formatTimeout);
+				this.formatTimeout = null;
+			}
+
 			// Send any remaining audio data
 			if (this.audioBuffer.length > 0) {
 				this.sendAudioBuffer();
@@ -509,19 +540,21 @@ export default class VoiceNotePlugin extends Plugin {
 				this.recordingInterval = null;
 			}
 
-			// Process transcribed text if available
+			// Process any remaining transcribed text
 			if (this.transcribedText.trim()) {
-				const processedText = await this.processTranscribedText(this.transcribedText);
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (view) {
-					const editor = view.editor;
-					const cursor = editor.getCursor();
-					// Calculate the start position by moving back the length of the original text
-					const startPos = editor.offsetToPos(editor.posToOffset(cursor) - this.transcribedText.length);
-					// Replace the original text with the processed text
-					editor.replaceRange(processedText, startPos, cursor);
+				const textToFormat = this.transcribedText.substring(this.lastFormatPosition);
+				if (textToFormat.trim()) {
+					const processedText = await this.processTranscribedText(textToFormat);
+					const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (view) {
+						const editor = view.editor;
+						const cursor = editor.getCursor();
+						const startPos = editor.offsetToPos(editor.posToOffset(cursor) - textToFormat.length);
+						editor.replaceRange(processedText, startPos, cursor);
+					}
 				}
 				this.transcribedText = '';
+				this.lastFormatPosition = 0;
 			}
 
 			this.updateRecordingState(false);
@@ -620,6 +653,37 @@ export default class VoiceNotePlugin extends Plugin {
 			console.error('Error processing text with GPT:', error);
 			new Notice('Error processing text with GPT');
 			return text;
+		}
+	}
+
+	private async formatPendingText() {
+		if (!this.transcribedText.trim()) return;
+
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view) return;
+
+		const editor = view.editor;
+		const cursor = editor.getCursor();
+		const currentPosition = editor.posToOffset(cursor);
+
+		// Only format text that hasn't been formatted yet
+		const textToFormat = this.transcribedText.substring(this.lastFormatPosition);
+		if (!textToFormat.trim()) return;
+
+		try {
+			const processedText = await this.processTranscribedText(textToFormat);
+			
+			// Calculate positions for replacement
+			const startPos = editor.offsetToPos(currentPosition - textToFormat.length);
+			const endPos = cursor;
+			
+			// Replace the unformatted text with formatted version
+			editor.replaceRange(processedText, startPos, endPos);
+			
+			// Update the last format position
+			this.lastFormatPosition = this.transcribedText.length;
+		} catch (error) {
+			console.error('Error formatting text:', error);
 		}
 	}
 }
