@@ -1,6 +1,6 @@
 # Voice Note for Obsidian
 
-Voice Note is a plugin for Obsidian that enables real-time voice transcription directly into your notes. Simply speak, and watch your words appear in your editor instantly.
+Voice Note is a plugin for Obsidian that enables real-time voice transcription directly into your notes. Simply speak, and watch your words appear in your editor instantly, with smart text formatting.
 
 ## Features
 
@@ -8,6 +8,7 @@ Voice Note is a plugin for Obsidian that enables real-time voice transcription d
 - ⚡ Instant text insertion at cursor position
 - 🔊 High-quality audio processing with noise suppression
 - 🎯 Accurate transcription using OpenAI's Real-time API
+- 📱 Smart text formatting with GPT after recording
 - 📱 Simple interface with status indicator
 - ⌨️ Easy toggle recording via command palette or toolbar
 
@@ -58,9 +59,18 @@ When recording:
 1. Speak clearly into your microphone
 2. Watch as your speech is transcribed in real-time
 3. Click/tap the same button again to stop recording
-4. The status bar will show recording duration
+4. The transcribed text will be automatically formatted with proper punctuation and paragraphs
+5. The status bar will show recording duration
 
 The microphone button is consistently placed in the editor toolbar for both desktop and mobile, making it easy to access while writing your notes.
+
+### Text Formatting
+
+After you stop recording, the plugin will automatically:
+- Format the transcribed text with proper punctuation
+- Use simplified Chinese for Chinese text while keeping English unchanged
+- Optimize paragraph structure
+- Maintain the original meaning of the text
 
 ## Requirements
 
