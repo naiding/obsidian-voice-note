@@ -31,6 +31,7 @@ export default class VoiceNotePlugin extends Plugin {
 	private currentView: MarkdownView | null = null;
 	private statusContainer: HTMLElement | null = null;
 	private statusText: HTMLElement | null = null;
+	private transcribedText: string = '';
 
 	async onload() {
 		await this.loadSettings();
@@ -44,6 +45,7 @@ export default class VoiceNotePlugin extends Plugin {
 
 		// Ensure recording state is false on load
 		this.settings.isRecording = false;
+		
 		await this.saveSettings();
 
 		// Add command for both mobile and desktop
@@ -280,6 +282,7 @@ export default class VoiceNotePlugin extends Plugin {
 							const cursor = editor.getCursor();
 							// Clean up the transcript text: trim spaces and normalize newlines
 							const text = data.transcript.trim() + ' ';
+							this.transcribedText += text;
 							editor.replaceRange(text, cursor);
 							// Move cursor to end of inserted text
 							const newPos = editor.offsetToPos(editor.posToOffset(cursor) + text.length);
@@ -506,6 +509,21 @@ export default class VoiceNotePlugin extends Plugin {
 				this.recordingInterval = null;
 			}
 
+			// Process transcribed text if available
+			if (this.transcribedText.trim()) {
+				const processedText = await this.processTranscribedText(this.transcribedText);
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (view) {
+					const editor = view.editor;
+					const cursor = editor.getCursor();
+					// Calculate the start position by moving back the length of the original text
+					const startPos = editor.offsetToPos(editor.posToOffset(cursor) - this.transcribedText.length);
+					// Replace the original text with the processed text
+					editor.replaceRange(processedText, startPos, cursor);
+				}
+				this.transcribedText = '';
+			}
+
 			this.updateRecordingState(false);
 			new Notice('Recording stopped');
 		}
@@ -566,6 +584,43 @@ export default class VoiceNotePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	private async processTranscribedText(text: string): Promise<string> {
+		try {
+			const response = await fetch('https://api.openai.com/v1/chat/completions', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${this.settings.openAiKey}`
+				},
+				body: JSON.stringify({
+					model: 'gpt-4o-mini',
+					messages: [
+						{
+							role: 'system',
+							content: '你是一个文本格式整理助手。请遵循以下规则：\n1. 使用简体中文（不要使用繁体字）\n2. 英文单词和短语保持原样不变\n3. 为文本添加合适的标点符号（中文使用中文标点，英文使用英文标点）\n4. 优化段落格式\n5. 不要改变原文的任何词句含义'
+						},
+						{
+							role: 'user',
+							content: text
+						}
+					],
+					temperature: 0.3
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to process text with GPT');
+			}
+
+			const data = await response.json();
+			return data.choices[0].message.content;
+		} catch (error) {
+			console.error('Error processing text with GPT:', error);
+			new Notice('Error processing text with GPT');
+			return text;
+		}
 	}
 }
 
