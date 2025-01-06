@@ -93,11 +93,12 @@ export default class VoiceNotePlugin extends Plugin {
 		if (this.currentView) {
 			const actions = (this.currentView as any).actions;
 			if (actions) {
-				const microphoneActions = Object.entries(actions)
-					.filter(([_, action]: [string, any]) => 
-						action.icon === 'microphone' || action.icon === 'square');
-				microphoneActions.forEach(([id, _]) => {
-					delete actions[id];
+				// Clear all microphone actions from the previous view
+				Object.entries(actions).forEach(([id, action]: [string, any]) => {
+					if (action.icon === 'microphone' || action.icon === 'square') {
+						action.remove();
+						delete actions[id];
+					}
 				});
 			}
 		}
@@ -105,7 +106,19 @@ export default class VoiceNotePlugin extends Plugin {
 		// Add action to new view
 		const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (leaf) {
+			// Clear any existing microphone actions from the new view first
+			const newActions = (leaf as any).actions;
+			if (newActions) {
+				Object.entries(newActions).forEach(([id, action]: [string, any]) => {
+					if (action.icon === 'microphone' || action.icon === 'square') {
+						action.remove();
+						delete newActions[id];
+					}
+				});
+			}
+
 			this.currentView = leaf;
+			// Add new action
 			this.currentMicrophoneAction = leaf.addAction(
 				this.settings.isRecording ? 'square' : 'microphone',
 				this.settings.isRecording ? 'Stop Recording' : 'Voice Record',
@@ -124,7 +137,7 @@ export default class VoiceNotePlugin extends Plugin {
 			);
 
 			// Add recording indicator class if recording
-			if (this.settings.isRecording) {
+			if (this.settings.isRecording && this.currentMicrophoneAction) {
 				const iconEl = (this.currentMicrophoneAction as any).iconEl as HTMLElement;
 				if (iconEl) {
 					iconEl.addClass('voice-note-recording');
@@ -160,10 +173,11 @@ export default class VoiceNotePlugin extends Plugin {
 		if (this.currentView) {
 			const actions = (this.currentView as any).actions;
 			if (actions) {
-				const microphoneActions = Object.entries(actions)
-					.filter(([_, action]: [string, any]) => action.icon === 'microphone');
-				microphoneActions.forEach(([id, _]) => {
-					delete actions[id];
+				Object.entries(actions).forEach(([id, action]: [string, any]) => {
+					if (action.icon === 'microphone' || action.icon === 'square') {
+						action.remove();
+						delete actions[id];
+					}
 				});
 			}
 		}
