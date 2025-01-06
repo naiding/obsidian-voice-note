@@ -35,6 +35,8 @@ export default class VoiceNotePlugin extends Plugin {
 	private lastTranscriptionEnd: number = 0;
 	private readonly FORMAT_DELAY_MS = 2000; // 2 seconds silence before formatting
 	private formatTimeout: NodeJS.Timeout | null = null;
+	private backupFormatTimeout: NodeJS.Timeout | null = null;
+	private lastTranscriptTime: number = 0;
 	private lastFormatPosition: number = 0;
 	private recordingStatus: 'idle' | 'listening' | 'transcribing' | 'formatting' = 'idle';
 	private recordingDuration: number = 0;
@@ -290,6 +292,24 @@ export default class VoiceNotePlugin extends Plugin {
 									// Move cursor to end of inserted text
 									const newPos = editor.offsetToPos(editor.posToOffset(cursor) + text.length);
 									editor.setCursor(newPos);
+									
+									// Reset backup format timeout
+									this.lastTranscriptTime = Date.now();
+									if (this.backupFormatTimeout) {
+										clearTimeout(this.backupFormatTimeout);
+									}
+									this.backupFormatTimeout = setTimeout(async () => {
+										const timeSinceLastTranscript = Date.now() - this.lastTranscriptTime;
+										if (timeSinceLastTranscript >= this.FORMAT_DELAY_MS) {
+											this.recordingStatus = 'formatting';
+											this.updateStatusText();
+											await this.formatPendingText();
+											if (this.settings.isRecording) {
+												this.recordingStatus = 'listening';
+												this.updateStatusText();
+											}
+										}
+									}, this.FORMAT_DELAY_MS * 1.5); // Wait a bit longer than normal format delay
 								}
 							}
 						}
@@ -393,9 +413,14 @@ export default class VoiceNotePlugin extends Plugin {
 			this.transcribedText = '';
 			this.recordingDuration = 0;
 			this.recordingStatus = 'listening';
+			this.lastTranscriptTime = Date.now();
 			if (this.formatTimeout) {
 				clearTimeout(this.formatTimeout);
 				this.formatTimeout = null;
+			}
+			if (this.backupFormatTimeout) {
+				clearTimeout(this.backupFormatTimeout);
+				this.backupFormatTimeout = null;
 			}
 			
 			console.log('Starting recording...');
@@ -515,10 +540,33 @@ export default class VoiceNotePlugin extends Plugin {
 			this.recordingDuration = 0;
 			this.updateStatusText();
 
-			// Clear any pending format timeout
+			// Clear any pending timeouts
 			if (this.formatTimeout) {
 				clearTimeout(this.formatTimeout);
 				this.formatTimeout = null;
+			}
+			if (this.backupFormatTimeout) {
+				clearTimeout(this.backupFormatTimeout);
+				this.backupFormatTimeout = null;
+			}
+
+			// Force format any remaining text before stopping
+			if (this.transcribedText.trim()) {
+				this.recordingStatus = 'formatting';
+				this.updateStatusText();
+				const textToFormat = this.transcribedText.substring(this.lastFormatPosition);
+				if (textToFormat.trim()) {
+					const processedText = await this.processTranscribedText(textToFormat);
+					const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (view) {
+						const editor = view.editor;
+						const cursor = editor.getCursor();
+						const startPos = editor.offsetToPos(editor.posToOffset(cursor) - textToFormat.length);
+						editor.replaceRange(processedText, startPos, cursor);
+					}
+				}
+				this.transcribedText = '';
+				this.lastFormatPosition = 0;
 			}
 
 			// Send any remaining audio data
@@ -546,23 +594,6 @@ export default class VoiceNotePlugin extends Plugin {
 			if (this.recordingInterval) {
 				clearInterval(this.recordingInterval);
 				this.recordingInterval = null;
-			}
-
-			// Process any remaining transcribed text
-			if (this.transcribedText.trim()) {
-				const textToFormat = this.transcribedText.substring(this.lastFormatPosition);
-				if (textToFormat.trim()) {
-					const processedText = await this.processTranscribedText(textToFormat);
-					const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-					if (view) {
-						const editor = view.editor;
-						const cursor = editor.getCursor();
-						const startPos = editor.offsetToPos(editor.posToOffset(cursor) - textToFormat.length);
-						editor.replaceRange(processedText, startPos, cursor);
-					}
-				}
-				this.transcribedText = '';
-				this.lastFormatPosition = 0;
 			}
 
 			this.updateRecordingState(false);
