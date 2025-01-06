@@ -57,32 +57,81 @@ available in the app when your plugin is enabled.
     white-space: nowrap;
 }
 
-/* Mobile floating indicator styles */
-.is-mobile .voice-note-mobile-indicator {
-    display: none;
+/* Status indicator */
+.voice-note-floating-indicator {
     position: fixed;
-    bottom: 60px;
-    right: 16px;
-    background-color: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    bottom: 40px; /* Position above status bar */
+    right: 20px;
+    display: flex;
     align-items: center;
-    gap: 8px;
+    background-color: var(--background-primary);
+    padding: 8px 12px;
+    border-radius: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    transition: all 0.3s ease;
+    border: 1px solid var(--background-modifier-border);
+    opacity: 0.9;
 }
 
-.is-mobile .voice-note-mobile-indicator.is-recording {
-    display: flex !important;
+.voice-note-floating-indicator:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.is-mobile .voice-note-mobile-indicator .voice-note-status-dot {
-    width: 10px;
-    height: 10px;
+.voice-note-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-muted);
+    margin-right: 8px;
+    transition: background-color 0.3s ease;
 }
 
-.is-mobile .voice-note-mobile-indicator .voice-note-status-text {
+.voice-note-status-text {
+    color: var(--text-muted);
     font-size: 14px;
-    line-height: 1.2;
+    transition: color 0.3s ease;
+}
+
+.voice-note-floating-indicator.is-recording .voice-note-status-dot {
+    background-color: var(--color-red);
+    animation: pulse 2s infinite;
+}
+
+.voice-note-floating-indicator.is-recording .voice-note-status-text {
+    color: var(--text-normal);
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .voice-note-floating-indicator {
+        bottom: 80px; /* Higher position for mobile to avoid bottom bar */
+    }
+}
+
+/* Recording button styles */
+.view-action[data-icon='microphone'] svg {
+    transition: color 0.3s ease;
+}
+
+.view-action[data-icon='microphone'].voice-note-recording svg {
+    color: var(--color-red);
+    animation: pulse 2s infinite;
 }
