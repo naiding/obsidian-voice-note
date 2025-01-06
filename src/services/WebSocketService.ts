@@ -1,6 +1,7 @@
 import { CONSTANTS } from '../constants';
 import { VoiceNoteSettings } from '../types';
 import { Notice } from 'obsidian';
+import { WEBSOCKET_INSTRUCTIONS } from '../instructions/websocket';
 
 export interface WebSocketCallbacks {
     onSpeechStarted: () => void;
@@ -51,15 +52,15 @@ export class WebSocketService {
                 session: {
                     modalities: ['text'],
                     input_audio_format: 'pcm16',
-                    instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these strict rules:\n\n1. Language Rules:\n   - For Chinese text, always use Simplified Chinese (简体中文), never Traditional Chinese\n   - Never translate English words or terms into Chinese\n   - Keep all English terms exactly as spoken (e.g., 'market', 'session', 'OK', brand names, technical terms)\n   - Preserve English interjections ('OK', 'yes', 'ha ha') in original form\n\n2. Text Formatting:\n   - Remove all extra spaces at start and end\n   - Never add newlines or line breaks\n   - Keep exactly one space between English words and Chinese characters\n   - Remove any duplicate spaces\n   - No spaces before punctuation\n\n3. Punctuation:\n   - Use Chinese punctuation (。，？！) for Chinese sentences\n   - Use English punctuation (.?!) for pure English sentences\n   - Add proper punctuation for every sentence",
+                    instructions: WEBSOCKET_INSTRUCTIONS,
                     input_audio_transcription: {
                         model: 'whisper-1'
                     },
                     turn_detection: {
                         type: 'server_vad',
                         threshold: 0.3,
-                        prefix_padding_ms: 200,
-                        silence_duration_ms: 300,
+                        prefix_padding_ms: 300,
+                        silence_duration_ms: 500,
                         create_response: true
                     },
                     temperature: 0.6,
