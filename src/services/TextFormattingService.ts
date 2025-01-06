@@ -1,5 +1,5 @@
 import { VoiceNoteSettings } from '../types';
-import { FORMATTING_INSTRUCTIONS } from '../instructions/formatting';
+import { FORMATTING_CONFIG } from '../config/formatting.config';
 
 export class TextFormattingService {
     constructor(private settings: VoiceNoteSettings) {}
@@ -13,19 +13,19 @@ export class TextFormattingService {
                     'Authorization': `Bearer ${this.settings.openAiKey}`
                 },
                 body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
+                    model: FORMATTING_CONFIG.MODEL,
                     messages: [
                         {
                             role: 'system',
-                            content: FORMATTING_INSTRUCTIONS
+                            content: FORMATTING_CONFIG.INSTRUCTIONS
                         },
                         {
                             role: 'user',
                             content: text
                         }
                     ],
-                    temperature: 0.3,
-                    max_tokens: 2000
+                    temperature: FORMATTING_CONFIG.TEMPERATURE,
+                    max_tokens: FORMATTING_CONFIG.MAX_TOKENS
                 })
             });
 

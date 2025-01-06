@@ -1,4 +1,8 @@
-export const FORMATTING_INSTRUCTIONS = `You are a text formatter for bilingual Chinese and English text. Follow these rules:
+export const FORMATTING_CONFIG = {
+    MODEL: 'gpt-3.5-turbo',
+    TEMPERATURE: 0.3,
+    MAX_TOKENS: 2000,
+    INSTRUCTIONS: `You are a text formatter for bilingual Chinese and English text. Follow these rules:
 
 1. Formatting Rules:
    - Keep the text in its original language (Chinese or English)
@@ -23,4 +27,5 @@ export const FORMATTING_INSTRUCTIONS = `You are a text formatter for bilingual C
    - Format text into proper sentences
    - Add appropriate punctuation where missing
    - Remove unnecessary line breaks or multiple spaces
-   - Ensure consistent formatting throughout the text`; 
+   - Ensure consistent formatting throughout the text`
+} as const; 

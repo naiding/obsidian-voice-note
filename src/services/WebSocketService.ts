@@ -1,7 +1,6 @@
-import { CONSTANTS } from '../constants';
 import { VoiceNoteSettings } from '../types';
 import { Notice } from 'obsidian';
-import { WEBSOCKET_INSTRUCTIONS } from '../instructions/websocket';
+import { WEBSOCKET_CONFIG } from '../config/websocket.config';
 
 export interface WebSocketCallbacks {
     onSpeechStarted: () => void;
@@ -23,7 +22,7 @@ export class WebSocketService {
 
     async connect(): Promise<void> {
         try {
-            const url = `${CONSTANTS.WEBSOCKET_URL}?model=${CONSTANTS.WEBSOCKET_MODEL}`;
+            const url = `${WEBSOCKET_CONFIG.URL}?model=${WEBSOCKET_CONFIG.MODEL}`;
             console.log('Connecting to WebSocket:', url);
             
             const protocols = [
@@ -52,20 +51,14 @@ export class WebSocketService {
                 session: {
                     modalities: ['text'],
                     input_audio_format: 'pcm16',
-                    instructions: WEBSOCKET_INSTRUCTIONS,
+                    instructions: WEBSOCKET_CONFIG.INSTRUCTIONS,
                     input_audio_transcription: {
-                        model: 'whisper-1'
+                        model: WEBSOCKET_CONFIG.TRANSCRIPTION_MODEL
                     },
-                    turn_detection: {
-                        type: 'server_vad',
-                        threshold: 0.3,
-                        prefix_padding_ms: 300,
-                        silence_duration_ms: 500,
-                        create_response: true
-                    },
-                    temperature: 0.6,
+                    turn_detection: WEBSOCKET_CONFIG.VAD_CONFIG,
+                    temperature: WEBSOCKET_CONFIG.TEMPERATURE,
                     tool_choice: 'none',
-                    max_response_output_tokens: 4096
+                    max_response_output_tokens: WEBSOCKET_CONFIG.MAX_TOKENS
                 }
             };
             console.log('Sending session config:', config);
