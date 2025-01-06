@@ -28,12 +28,23 @@ export default class VoiceNotePlugin extends Plugin {
 	private audioDuration: number = 0;
 	private accumulatedSamples: number = 0;
 	private isMobileDevice: boolean = false;
+	private currentView: MarkdownView | null = null;
+	private statusContainer: HTMLElement | null = null;
+	private statusText: HTMLElement | null = null;
 
 	async onload() {
 		await this.loadSettings();
 		
 		// Detect platform
 		this.isMobileDevice = Platform.isMobile;
+
+		// Initialize status bar first
+		this.statusBarItem = this.addStatusBarItem();
+		this.initializeStatusBar();
+
+		// Ensure recording state is false on load
+		this.settings.isRecording = false;
+		await this.saveSettings();
 
 		// Add command for both mobile and desktop
 		this.addCommand({
@@ -55,51 +66,87 @@ export default class VoiceNotePlugin extends Plugin {
 			}
 		});
 
-		// Add mobile toolbar icon (shows up at the bottom of the editor)
-		if (this.isMobileDevice) {
-			this.registerEvent(
-				this.app.workspace.on('file-open', () => {
-					const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
-					if (leaf) {
-						leaf.addAction('microphone', 'Voice Record', async (evt: MouseEvent) => {
-							if (!this.settings.openAiKey) {
-								new Notice('Please set your OpenAI API key in settings first!');
-								return;
-							}
-							
-							if (!this.settings.isRecording) {
-								await this.startRecording();
-							} else {
-								await this.stopRecording();
-							}
+		// Handle file open events
+		this.registerEvent(
+			this.app.workspace.on('file-open', () => {
+				// Remove action from previous view if it exists
+				if (this.currentView) {
+					const actions = (this.currentView as any).actions;
+					if (actions) {
+						const microphoneActions = Object.entries(actions)
+							.filter(([_, action]: [string, any]) => action.icon === 'microphone');
+						microphoneActions.forEach(([id, _]) => {
+							delete actions[id];
 						});
 					}
-				})
-			);
-		}
-
-		// Add desktop ribbon icon (only for desktop)
-		if (!this.isMobileDevice) {
-			const ribbonIconEl = this.addRibbonIcon('microphone', 'Toggle Voice Recording', async (evt: MouseEvent) => {
-				if (!this.settings.openAiKey) {
-					new Notice('Please set your OpenAI API key in settings first!');
-					return;
 				}
-				
-				if (!this.settings.isRecording) {
-					await this.startRecording();
-				} else {
-					await this.stopRecording();
-				}
-			});
-		}
 
-		// Add status bar item to show recording status
-		this.statusBarItem = this.addStatusBarItem();
-		this.updateStatusBar();
+				// Add action to new view
+				const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (leaf) {
+					this.currentView = leaf;
+					leaf.addAction('microphone', 'Voice Record', async (evt: MouseEvent) => {
+						if (!this.settings.openAiKey) {
+							new Notice('Please set your OpenAI API key in settings first!');
+							return;
+						}
+						
+						if (!this.settings.isRecording) {
+							await this.startRecording();
+						} else {
+							await this.stopRecording();
+						}
+					});
+				}
+			})
+		);
 
 		// Add settings tab
 		this.addSettingTab(new VoiceNoteSettingTab(this.app, this));
+	}
+
+	private initializeStatusBar() {
+		// First clear any existing content
+		this.statusBarItem.empty();
+		
+		// Create status container
+		this.statusContainer = this.statusBarItem.createEl('div');
+		this.statusContainer.addClasses(['voice-note-status']);
+		
+		// Create dot indicator
+		const dot = this.statusContainer.createEl('div');
+		dot.addClasses(['voice-note-status-dot']);
+		
+		// Create text element
+		this.statusText = this.statusContainer.createEl('span');
+		this.statusText.addClasses(['voice-note-status-text']);
+		
+		// Ensure proper initial state
+		if (this.settings.isRecording) {
+			this.statusContainer.addClass('is-recording');
+			this.updateStatusBar(0);
+		}
+	}
+
+	async onunload() {
+		// Clean up action from current view
+		if (this.currentView) {
+			const actions = (this.currentView as any).actions;
+			if (actions) {
+				const microphoneActions = Object.entries(actions)
+					.filter(([_, action]: [string, any]) => action.icon === 'microphone');
+				microphoneActions.forEach(([id, _]) => {
+					delete actions[id];
+				});
+			}
+		}
+
+		// Clean up status bar
+		if (this.statusBarItem) {
+			this.statusBarItem.empty();
+		}
+		this.statusContainer = null;
+		this.statusText = null;
 	}
 
 	private async getMobileAudioConstraints() {
@@ -306,6 +353,7 @@ export default class VoiceNotePlugin extends Plugin {
 
 	async startRecording() {
 		try {
+			console.log('Starting recording...');
 			await this.setupWebSocket();
 			this.audioBuffer = [];
 			this.lastSendTime = Date.now();
@@ -320,6 +368,7 @@ export default class VoiceNotePlugin extends Plugin {
 					noiseSuppression: true
 				};
 
+			console.log('Getting user media...');
 			const stream = await navigator.mediaDevices.getUserMedia({ 
 				audio: audioConstraints
 			});
@@ -365,15 +414,22 @@ export default class VoiceNotePlugin extends Plugin {
 			source.connect(this.audioProcessor);
 			this.audioProcessor.connect(this.audioContext.destination);
 
+			console.log('Setting up recording state...');
+			// Set up recording state first
 			this.settings.isRecording = true;
-			this.updateStatusBar();
-			new Notice('Recording started');
+			this.updateStatusBar(0);
 
+			// Start the interval timer
 			let duration = 0;
 			this.recordingInterval = window.setInterval(() => {
 				duration++;
+				console.log('Updating status with duration:', duration);
 				this.updateStatusBar(duration);
 			}, 1000);
+
+			// Update UI last
+			this.updateRecordingState(true);
+			new Notice('Recording started');
 
 		} catch (error: any) {
 			console.error('Recording error:', error);
@@ -439,17 +495,58 @@ export default class VoiceNotePlugin extends Plugin {
 				this.recordingInterval = null;
 			}
 
-			this.settings.isRecording = false;
-			this.updateStatusBar();
+			this.updateRecordingState(false);
 			new Notice('Recording stopped');
 		}
 	}
 
 	private updateStatusBar(duration?: number) {
-		const text = this.settings.isRecording 
-				? `🎙️ Recording${duration ? ` (${Math.floor(duration)}s)` : ''}...` 
-				: '';
-		this.statusBarItem.setText(text);
+		if (!this.statusContainer || !this.statusText) {
+			console.log('Reinitializing status bar elements');
+			this.initializeStatusBar();
+			return;
+		}
+
+		const isRecording = this.settings.isRecording;
+		console.log('Updating status bar, recording:', isRecording, 'duration:', duration);
+
+		if (isRecording) {
+			this.statusContainer.addClass('is-recording');
+			const durationText = duration ? ` (${Math.floor(duration)}s)` : '';
+			this.statusText.innerText = `Recording${durationText}...`;
+		} else {
+			this.statusContainer.removeClass('is-recording');
+			this.statusText.innerText = '';
+		}
+	}
+
+	private updateRecordingState(isRecording: boolean) {
+		console.log('Updating recording state:', isRecording);
+		
+		// Update recording state
+		this.settings.isRecording = isRecording;
+
+		// Update action button appearance
+		if (this.currentView) {
+			const actions = (this.currentView as any).actions;
+			if (actions) {
+				const microphoneActions = Object.entries(actions)
+					.filter(([_, action]: [string, any]) => action.icon === 'microphone');
+				microphoneActions.forEach(([_, action]) => {
+					const iconEl = (action as any).iconEl as HTMLElement;
+					if (iconEl) {
+						if (isRecording) {
+							iconEl.addClass('voice-note-recording');
+						} else {
+							iconEl.removeClass('voice-note-recording');
+						}
+					}
+				});
+			}
+		}
+
+		// Update status bar
+		this.updateStatusBar(0);
 	}
 
 	async loadSettings() {

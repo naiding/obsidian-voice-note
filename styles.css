@@ -3,6 +3,55 @@
 This CSS file will be included with your plugin, and
 available in the app when your plugin is enabled.
 
-If your plugin does not need CSS, delete this file.
-
 */
+
+.voice-note-recording {
+    color: var(--text-error) !important;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.status-bar-item .voice-note-status {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    height: 22px;
+    min-width: 120px;
+}
+
+.status-bar-item .voice-note-status.is-recording {
+    display: flex !important;
+}
+
+.voice-note-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-error);
+    flex-shrink: 0;
+}
+
+.voice-note-status.is-recording .voice-note-status-dot {
+    animation: pulse 2s infinite;
+}
+
+.voice-note-status-text {
+    color: var(--text-error);
+    font-size: 12px;
+    line-height: 22px;
+    padding-left: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+}

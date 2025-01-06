@@ -49,19 +49,18 @@ If you need to install manually (not recommended for most users):
 
 ## Usage
 
-### Desktop
-1. Click the microphone icon in the ribbon (left sidebar) to start recording
-2. Or use the command palette (Cmd/Ctrl + P) and search for "Voice Record"
-3. Speak clearly into your microphone
-4. Watch as your speech is transcribed in real-time
-5. Click the microphone icon again to stop recording
+You can start/stop voice recording in any of these ways:
 
-### Mobile
-1. Tap the microphone icon in the editor toolbar (bottom of screen)
-2. Or tap the three dots menu (⋮) and search for "Voice Record"
-3. Speak clearly into your microphone
-4. Watch as your speech is transcribed in real-time
-5. Tap the same button again to stop recording
+1. Click/tap the microphone icon in the editor toolbar (available in every note)
+2. Use the command palette (Cmd/Ctrl + P on desktop, ⋮ menu on mobile) and search for "Voice Record"
+
+When recording:
+1. Speak clearly into your microphone
+2. Watch as your speech is transcribed in real-time
+3. Click/tap the same button again to stop recording
+4. The status bar will show recording duration
+
+The microphone button is consistently placed in the editor toolbar for both desktop and mobile, making it easy to access while writing your notes.
 
 ## Requirements
 
