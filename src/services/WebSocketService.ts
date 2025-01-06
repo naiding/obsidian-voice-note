@@ -58,8 +58,8 @@ export class WebSocketService {
                     turn_detection: {
                         type: 'server_vad',
                         threshold: 0.3,
-                        prefix_padding_ms: 300,
-                        silence_duration_ms: 500,
+                        prefix_padding_ms: 200,
+                        silence_duration_ms: 300,
                         create_response: true
                     },
                     temperature: 0.6,
