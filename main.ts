@@ -207,21 +207,18 @@ export default class VoiceNotePlugin extends Plugin {
 						session: {
 							modalities: ['text'],
 							input_audio_format: 'pcm16',
-							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these strict rules:\n\n1. Language and Translation Rules:\n   - Always use Simplified Chinese (简体中文) for Chinese text, NEVER use Traditional Chinese\n   - NEVER translate English words or terms into Chinese\n   - Keep ALL English terms in their original form (e.g., 'market', 'session', 'OK', brand names)\n   - Preserve English names, technical terms, and expressions exactly as spoken\n\n2. Formatting and Punctuation Rules:\n   - Use Chinese punctuation (。，？！) for Chinese sentences\n   - Use English punctuation (.?!) for pure English sentences\n   - Add proper punctuation for every sentence\n   - Keep one space between English words and Chinese characters\n   - Only add line breaks for significant topic changes or long pauses\n   - Remove all leading and trailing spaces\n\n3. Examples of Correct Formatting:\n   Bad:  \"我想看看chinese market的情况\"\n   Good: \"我想看看 Chinese market 的情况。\"\n\n   Bad:  \"這是一個 test\"\n   Good: \"这是一个 test。\"\n\n   Bad:  \"market share 很重要 sales volume 也很重要\"\n   Good: \"Market share 很重要，sales volume 也很重要。\"\n\n4. Speech Pattern Handling:\n   - Keep conversation fillers (e.g., 'hmm', 'um') only if they're meaningful\n   - Preserve English interjections ('OK', 'yes', 'ha ha') in their original form\n   - Group related sentences together without unnecessary line breaks",
+							instructions: "You are a bilingual transcriber for Mandarin Chinese and English. Follow these strict rules:\n\n1. Language Rules:\n   - For Chinese text, always use Simplified Chinese (简体中文), never Traditional Chinese\n   - Never translate English words or terms into Chinese\n   - Keep all English terms exactly as spoken (e.g., 'market', 'session', 'OK', brand names, technical terms)\n   - Preserve English interjections ('OK', 'yes', 'ha ha') in original form\n\n2. Text Formatting:\n   - Remove all extra spaces at start and end\n   - Never add newlines or line breaks\n   - Keep exactly one space between English words and Chinese characters\n   - Remove any duplicate spaces\n   - No spaces before punctuation\n\n3. Punctuation:\n   - Use Chinese punctuation (。，？！) for Chinese sentences\n   - Use English punctuation (.?!) for pure English sentences\n   - Add proper punctuation for every sentence\n\nExamples:\nCorrect: \"我想看看 Chinese market 的情况。\"\nCorrect: \"Market share 很重要。\"\nCorrect: \"OK，现在开始。\"",
 							input_audio_transcription: {
-								model: 'whisper-1',
-								language: null,
-								prompt: 'Transcribe in Simplified Chinese only, never Traditional Chinese. Keep all English words unchanged. Add proper punctuation. Group related sentences together.',
-								temperature: 0.1
+								model: 'whisper-1'
 							},
 							turn_detection: {
 								type: 'server_vad',
 								threshold: 0.3,
-									prefix_padding_ms: 500,
-									silence_duration_ms: 1000,
-									create_response: true
+								prefix_padding_ms: 500,
+								silence_duration_ms: 1000,
+								create_response: true
 							},
-							temperature: 0.1,
+							temperature: 0.6,
 							tool_choice: 'none',
 							max_response_output_tokens: 4096
 						}
@@ -264,7 +261,8 @@ export default class VoiceNotePlugin extends Plugin {
 								if (transcriptView) {
 									const editor = transcriptView.editor;
 									const cursor = editor.getCursor();
-									const text = content.transcript + ' ';
+									// Clean up the transcript text: trim spaces and normalize newlines
+									const text = content.transcript.trim() + ' ';
 									editor.replaceRange(text, cursor);
 									// Move cursor to end of inserted text
 									const newPos = editor.offsetToPos(editor.posToOffset(cursor) + text.length);
@@ -280,7 +278,8 @@ export default class VoiceNotePlugin extends Plugin {
 						if (transcriptView && data.transcript) {
 							const editor = transcriptView.editor;
 							const cursor = editor.getCursor();
-							const text = data.transcript + ' ';
+							// Clean up the transcript text: trim spaces and normalize newlines
+							const text = data.transcript.trim() + ' ';
 							editor.replaceRange(text, cursor);
 							// Move cursor to end of inserted text
 							const newPos = editor.offsetToPos(editor.posToOffset(cursor) + text.length);
