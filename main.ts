@@ -206,7 +206,7 @@ export default class VoiceNotePlugin extends Plugin {
 						session: {
 							modalities: ['text'],
 							input_audio_format: 'pcm16',
-							instructions: 'You are a transcriber. Only transcribe the speech to text without adding any other content. Do not generate any responses.',
+							instructions: 'You are a transcriber focused on producing natural, readable text. Follow these guidelines:\n1. Add proper punctuation (periods, commas, question marks) based on speech patterns and pauses\n2. Start new sentences with capital letters\n3. Format the text as a continuous paragraph\n4. Add appropriate spacing after punctuation marks\n5. Do not add line breaks or special formatting\n6. Only transcribe the speech to text without adding any other content',
 							input_audio_transcription: {
 								model: 'whisper-1'
 							},
