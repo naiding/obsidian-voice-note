@@ -1,11 +1,12 @@
-import { App, Editor, MarkdownView, Notice, Plugin, Platform } from 'obsidian';
-import { VoiceNoteSettings, DEFAULT_SETTINGS, RecordingStatus } from './types';
+import { App, MarkdownView, Notice, Plugin, Platform } from 'obsidian';
+import { VoiceNoteSettings, DEFAULT_SETTINGS } from './types';
 import { RecordingService } from './services/RecordingService';
-import { WebSocketService, WebSocketCallbacks } from './services/WebSocketService';
+import { WebSocketService } from './services/WebSocketService';
 import { TextFormattingService } from './services/TextFormattingService';
+import { EditorService } from './services/EditorService';
+import { TimeoutManager } from './services/TimeoutManager';
 import { StatusBar } from './components/StatusBar';
 import { VoiceNoteSettingTab } from './components/SettingsTab';
-import { CONSTANTS } from './constants';
 
 export default class VoiceNotePlugin extends Plugin {
     settings: VoiceNoteSettings;
@@ -13,14 +14,9 @@ export default class VoiceNotePlugin extends Plugin {
     private recordingService: RecordingService;
     private webSocketService: WebSocketService;
     private textFormattingService: TextFormattingService;
+    private editorService: EditorService;
+    private timeoutManager: TimeoutManager;
     private recordingInterval: number | null = null;
-    private currentView: MarkdownView | null = null;
-    private currentMicrophoneAction: any = null;
-    private transcribedText: string = '';
-    private lastFormatPosition: number = 0;
-    private formatTimeout: NodeJS.Timeout | null = null;
-    private backupFormatTimeout: NodeJS.Timeout | null = null;
-    private lastTranscriptTime: number = 0;
 
     async onload() {
         await this.loadSettings();
@@ -28,9 +24,34 @@ export default class VoiceNotePlugin extends Plugin {
         // Initialize services
         this.recordingService = new RecordingService(this.settings);
         this.textFormattingService = new TextFormattingService(this.settings);
+        this.editorService = new EditorService(() => this.app.workspace.getActiveViewOfType(MarkdownView));
+        this.timeoutManager = new TimeoutManager(
+            async () => {
+                this.statusBar.setStatus('formatting');
+                await this.formatPendingText();
+                if (this.settings.isRecording) {
+                    this.statusBar.setStatus('listening');
+                }
+            },
+            () => this.settings.isRecording
+        );
         
-        // Initialize status bar
-        this.statusBar = new StatusBar(this.addStatusBarItem());
+        // Initialize UI components
+        this.statusBar = new StatusBar(
+            this.addStatusBarItem(),
+            {
+                onStartRecording: () => this.startRecording(),
+                onStopRecording: () => this.stopRecording(),
+                validateApiKey: () => {
+                    if (!this.settings.openAiKey) {
+                        new Notice('Please set your OpenAI API key in settings first!');
+                        return false;
+                    }
+                    return true;
+                },
+                getActiveView: () => this.app.workspace.getActiveViewOfType(MarkdownView)
+            }
+        );
 
         // Ensure recording state is false on load
         this.settings.isRecording = false;
@@ -59,7 +80,7 @@ export default class VoiceNotePlugin extends Plugin {
         // Handle file open events
         this.registerEvent(
             this.app.workspace.on('file-open', () => {
-                this.updateMicrophoneAction();
+                this.statusBar.checkVisibility();
             })
         );
 
@@ -67,113 +88,24 @@ export default class VoiceNotePlugin extends Plugin {
         this.addSettingTab(new VoiceNoteSettingTab(this.app, this));
     }
 
-    private updateMicrophoneAction() {
-        // Remove action from previous view if it exists
-        if (this.currentView) {
-            const actions = (this.currentView as any).actions;
-            if (actions) {
-                Object.entries(actions).forEach(([id, action]: [string, any]) => {
-                    if (action.icon === 'microphone' || action.icon === 'square') {
-                        action.remove();
-                        delete actions[id];
-                    }
-                });
-            }
-        }
-
-        // Add action to new view
-        const leaf = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (leaf) {
-            const newActions = (leaf as any).actions;
-            if (newActions) {
-                Object.entries(newActions).forEach(([id, action]: [string, any]) => {
-                    if (action.icon === 'microphone' || action.icon === 'square') {
-                        action.remove();
-                        delete newActions[id];
-                    }
-                });
-            }
-
-            this.currentView = leaf;
-            this.currentMicrophoneAction = leaf.addAction(
-                this.settings.isRecording ? 'square' : 'microphone',
-                this.settings.isRecording ? 'Stop Recording' : 'Voice Record',
-                async () => {
-                    if (!this.settings.openAiKey) {
-                        new Notice('Please set your OpenAI API key in settings first!');
-                        return;
-                    }
-                    
-                    if (!this.settings.isRecording) {
-                        await this.startRecording();
-                    } else {
-                        await this.stopRecording();
-                    }
-                }
-            );
-
-            if (this.settings.isRecording && this.currentMicrophoneAction) {
-                const iconEl = (this.currentMicrophoneAction as any).iconEl as HTMLElement;
-                if (iconEl) {
-                    iconEl.addClass('voice-note-recording');
-                }
-            }
-        }
-    }
-
     async startRecording() {
         try {
-            // Reset format tracking variables
-            this.lastFormatPosition = 0;
-            this.transcribedText = '';
+            // Reset state
+            this.editorService.reset();
             
             // Initialize WebSocket service with callbacks
             this.webSocketService = new WebSocketService(this.settings, {
                 onSpeechStarted: () => {
                     this.statusBar.setStatus('listening');
-                    if (this.formatTimeout) {
-                        clearTimeout(this.formatTimeout);
-                        this.formatTimeout = null;
-                    }
+                    this.timeoutManager.clearTimeouts();
                 },
                 onSpeechStopped: () => {
                     this.statusBar.setStatus('transcribing');
-                    if (this.formatTimeout) {
-                        clearTimeout(this.formatTimeout);
-                    }
-                    this.formatTimeout = setTimeout(async () => {
-                        this.statusBar.setStatus('formatting');
-                        await this.formatPendingText();
-                        if (this.settings.isRecording) {
-                            this.statusBar.setStatus('listening');
-                        }
-                    }, CONSTANTS.FORMAT_DELAY_MS);
+                    this.timeoutManager.scheduleFormat();
                 },
                 onTranscriptReceived: (text: string) => {
-                    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-                    if (view) {
-                        const editor = view.editor;
-                        const cursor = editor.getCursor();
-                        this.transcribedText += text;
-                        editor.replaceRange(text, cursor);
-                        const newPos = editor.offsetToPos(editor.posToOffset(cursor) + text.length);
-                        editor.setCursor(newPos);
-                        
-                        this.lastTranscriptTime = Date.now();
-                        if (this.backupFormatTimeout) {
-                            clearTimeout(this.backupFormatTimeout);
-                        }
-                        this.backupFormatTimeout = setTimeout(async () => {
-                            const timeSinceLastTranscript = Date.now() - this.lastTranscriptTime;
-                            if (timeSinceLastTranscript >= CONSTANTS.FORMAT_DELAY_MS) {
-                                this.statusBar.setStatus('formatting');
-                                await this.formatPendingText();
-                                if (this.settings.isRecording) {
-                                    this.statusBar.setStatus('listening');
-                                }
-                            }
-                        }, CONSTANTS.FORMAT_DELAY_MS * 1.5);
-                    }
+                    this.editorService.appendText(text);
+                    this.timeoutManager.scheduleBackupFormat();
                 },
                 onError: (error: string) => {
                     new Notice(error);
@@ -200,7 +132,6 @@ export default class VoiceNotePlugin extends Plugin {
                 this.statusBar.incrementDuration();
             }, 1000);
 
-            this.updateMicrophoneAction();
             new Notice('Recording started');
 
         } catch (error: any) {
@@ -214,18 +145,11 @@ export default class VoiceNotePlugin extends Plugin {
 
     async stopRecording() {
         if (this.settings.isRecording) {
-            // Clear any pending timeouts
-            if (this.formatTimeout) {
-                clearTimeout(this.formatTimeout);
-                this.formatTimeout = null;
-            }
-            if (this.backupFormatTimeout) {
-                clearTimeout(this.backupFormatTimeout);
-                this.backupFormatTimeout = null;
-            }
+            // Clear timeouts
+            this.timeoutManager.clearTimeouts();
 
             // Force format any remaining text
-            if (this.transcribedText.trim()) {
+            if (this.editorService.hasUnformattedText()) {
                 this.statusBar.setStatus('formatting');
                 await this.formatPendingText();
             }
@@ -242,64 +166,17 @@ export default class VoiceNotePlugin extends Plugin {
             // Reset state
             this.settings.isRecording = false;
             this.statusBar.updateStatus(false);
-            this.updateMicrophoneAction();
             
             new Notice('Recording stopped');
         }
     }
 
     private async formatPendingText() {
-        if (!this.transcribedText.trim()) {
-            this.statusBar.setStatus('listening');
-            return;
-        }
-
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!view) return;
-
-        const editor = view.editor;
-        const cursor = editor.getCursor();
-        const currentPosition = editor.posToOffset(cursor);
-
-        const textToFormat = this.transcribedText.substring(this.lastFormatPosition);
-        if (!textToFormat.trim()) return;
-
-        try {
-            const processedText = await this.textFormattingService.formatText(textToFormat);
-            
-            const startPos = editor.offsetToPos(currentPosition - textToFormat.length);
-            const endPos = cursor;
-            
-            editor.replaceRange(processedText, startPos, endPos);
-            
-            this.lastFormatPosition = this.transcribedText.length;
-            
-            if (this.settings.isRecording) {
-                this.statusBar.setStatus('listening');
-            }
-        } catch (error) {
-            console.error('Error formatting text:', error);
-            if (this.settings.isRecording) {
-                this.statusBar.setStatus('listening');
-            }
-        }
+        await this.editorService.formatText(text => this.textFormattingService.formatText(text));
     }
 
     async onunload() {
-        // Clean up action from current view
-        if (this.currentView) {
-            const actions = (this.currentView as any).actions;
-            if (actions) {
-                Object.entries(actions).forEach(([id, action]: [string, any]) => {
-                    if (action.icon === 'microphone' || action.icon === 'square') {
-                        action.remove();
-                        delete actions[id];
-                    }
-                });
-            }
-        }
-
-        // Clean up status bar
+        // Clean up UI
         this.statusBar.destroy();
 
         // Stop recording if active

@@ -12,6 +12,8 @@ export interface WebSocketCallbacks {
 
 export class WebSocketService {
     private ws: WebSocket | null = null;
+    private currentTranscript: string = '';
+    private currentDeltaText: string = '';
 
     constructor(
         private settings: VoiceNoteSettings,
@@ -21,6 +23,7 @@ export class WebSocketService {
     async connect(): Promise<void> {
         try {
             const url = `${CONSTANTS.WEBSOCKET_URL}?model=${CONSTANTS.WEBSOCKET_MODEL}`;
+            console.log('Connecting to WebSocket:', url);
             
             const protocols = [
                 'realtime',
@@ -41,8 +44,9 @@ export class WebSocketService {
     }
 
     private handleOpen(): void {
+        console.log('WebSocket connection opened');
         if (this.ws) {
-            this.ws.send(JSON.stringify({
+            const config = {
                 type: 'session.update',
                 session: {
                     modalities: ['text'],
@@ -62,25 +66,71 @@ export class WebSocketService {
                     tool_choice: 'none',
                     max_response_output_tokens: 4096
                 }
-            }));
+            };
+            console.log('Sending session config:', config);
+            this.ws.send(JSON.stringify(config));
         }
     }
 
     private handleMessage(event: MessageEvent): void {
         const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data);
         
         switch (data.type) {
+            case 'session.created':
+            case 'session.updated':
+                console.log('Session status:', data.type);
+                break;
+
             case 'input_audio_buffer.speech_started':
+                console.log('Speech started detected');
+                this.currentTranscript = '';
+                this.currentDeltaText = '';
                 this.callbacks.onSpeechStarted();
                 break;
 
             case 'input_audio_buffer.speech_stopped':
+                console.log('Speech stopped detected');
                 this.callbacks.onSpeechStopped();
                 break;
 
             case 'conversation.item.created':
                 if (data.item.content?.[0]?.type === 'input_audio' && data.item.content[0].transcript) {
-                    this.callbacks.onTranscriptReceived(data.item.content[0].transcript.trim() + ' ');
+                    const transcript = data.item.content[0].transcript.trim();
+                    console.log('Received partial transcript:', transcript);
+                    if (transcript && transcript !== this.currentTranscript) {
+                        this.currentTranscript = transcript;
+                        this.callbacks.onTranscriptReceived(transcript + ' ');
+                    }
+                }
+                break;
+
+            case 'conversation.item.input_audio_transcription.completed':
+                if (data.transcript) {
+                    const transcript = data.transcript.trim();
+                    console.log('Received complete transcript:', transcript);
+                    if (transcript && transcript !== this.currentTranscript) {
+                        this.currentTranscript = transcript;
+                        this.callbacks.onTranscriptReceived(transcript + ' ');
+                    }
+                }
+                break;
+
+            case 'response.text.delta':
+                if (data.delta?.text) {
+                    const deltaText = data.delta.text;
+                    console.log('Received text delta:', deltaText);
+                    this.currentDeltaText += deltaText;
+                    this.callbacks.onTranscriptReceived(deltaText);
+                }
+                break;
+
+            case 'response.text.done':
+                // 当一段delta文本完成时，添加空格
+                if (this.currentDeltaText) {
+                    console.log('Text delta completed:', this.currentDeltaText);
+                    this.callbacks.onTranscriptReceived(' ');
+                    this.currentDeltaText = '';
                 }
                 break;
 
@@ -90,6 +140,10 @@ export class WebSocketService {
                     this.callbacks.onError(data.error.message);
                 }
                 break;
+
+            default:
+                // 其他事件类型我们只记录但不处理
+                console.log('Unhandled message type:', data.type);
         }
     }
 
@@ -105,14 +159,19 @@ export class WebSocketService {
 
     sendAudioData(audioData: string): void {
         if (this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
+            const message = {
                 type: 'input_audio_buffer.append',
                 audio: audioData
-            }));
+            };
+            console.log('Sending audio data, length:', audioData.length);
+            this.ws.send(JSON.stringify(message));
+        } else {
+            console.warn('WebSocket not ready, state:', this.ws?.readyState);
         }
     }
 
     close(): void {
+        console.log('Closing WebSocket connection');
         if (this.ws) {
             this.ws.close();
             this.ws = null;

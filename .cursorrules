@@ -1,3 +1,11 @@
 ## Development
 
 Run `npm run build` to build the plugin to verify it works.
+
+## Important Rules
+
+1. After any code changes, always run `npm run build` to:
+   - Check for compilation errors
+   - Ensure the plugin can be properly bundled
+   - Verify there are no TypeScript type errors
+   - Generate the updated main.js file

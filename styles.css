@@ -60,39 +60,90 @@ available in the app when your plugin is enabled.
 /* Status indicator */
 .voice-note-floating-indicator {
     position: fixed;
-    bottom: 40px;
+    bottom: 35px;
     right: 20px;
-    background-color: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 8px;
-    padding: 8px 12px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    z-index: 1000;
+    gap: 6px;
+    padding: 6px 10px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: opacity 0.3s ease;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    max-width: 200px;
+    backdrop-filter: blur(10px);
 }
 
-.voice-note-status-dot {
-    width: 10px;
-    height: 10px;
+.voice-note-action-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background-color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: var(--background-secondary);
+    padding: 4px;
+}
+
+.voice-note-action-button:hover {
+    background-color: var(--background-modifier-hover);
+    transform: scale(1.05);
+}
+
+.voice-note-mic-icon {
+    width: 16px;
+    height: 16px;
+    background-color: var(--text-normal);
+    mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>');
+    -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>');
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+}
+
+.voice-note-stop-icon {
+    width: 16px;
+    height: 16px;
+    background-color: var(--text-error);
+    mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>');
+    -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>');
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+    animation: pulse 2s infinite;
 }
 
 .voice-note-status-text {
-    color: var(--text-muted);
-    font-size: 12px;
-}
-
-.is-recording .voice-note-status-dot {
-    background-color: var(--text-error);
-    animation: pulse 1.5s infinite;
-}
-
-.is-recording .voice-note-status-text {
     color: var(--text-normal);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.95);
+        opacity: 0.8;
+    }
 }
 
 /* Recording button styles */
@@ -120,6 +171,9 @@ available in the app when your plugin is enabled.
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .voice-note-floating-indicator {
-        bottom: 80px; /* Higher position for mobile to avoid bottom bar */
+        bottom: 80px;
+        right: 50%;
+        transform: translateX(50%);
+        max-width: 180px;
     }
 }
